@@ -3,6 +3,7 @@ import cv2
 from random import randint
 import time
 import random
+import os
 
 pygame.init()
 fruits = [] #Guarda las frutas en pantalla
@@ -14,10 +15,10 @@ win = pygame.display.set_mode((widht, height))
 pygame.display.set_caption("Fruit Ninja")
 
 #Se cargan las imagenes de las frutas
-apple = [pygame.image.load('images\\apple.png'), pygame.image.load('images\\apple-1.png'), pygame.image.load('images\\apple-2.png')]
-peach = [pygame.image.load('images\\peach.png'), pygame.image.load('images\\peach-1.png'), pygame.image.load('images\\peach-2.png')]
-strawberry = [pygame.image.load('images\\strawberry.png'), pygame.image.load('images\\strawberry-1.png'), pygame.image.load('images\\strawberry-2.png')]
-watermelon = [pygame.image.load('images\\watermelon.png'), pygame.image.load('images\\watermelon-1.png'), pygame.image.load('images\\watermelon-2.png')]
+apple = [pygame.image.load('images/apple.png'), pygame.image.load('images/apple-1.png'), pygame.image.load('images/apple-2.png')]
+peach = [pygame.image.load('images/peach.png'), pygame.image.load('images/peach-1.png'), pygame.image.load('images/peach-2.png')]
+strawberry = [pygame.image.load('images/strawberry.png'), pygame.image.load('images/strawberry-1.png'), pygame.image.load('images/strawberry-2.png')]
+watermelon = [pygame.image.load('images/watermelon.png'), pygame.image.load('images/watermelon-1.png'), pygame.image.load('images/watermelon-2.png')]
 
 #Classe donde se define las propiedades de las frutas
 class img(object):
