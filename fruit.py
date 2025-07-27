@@ -4,6 +4,8 @@ from random import randint
 import time
 import random
 import os
+from PIL import Image
+import numpy as np
 
 pygame.init()
 fruits = [] #Guarda las frutas en pantalla
@@ -11,6 +13,7 @@ myfont = pygame.font.SysFont("monospace", 24)
 
 widht = 640
 height = 480
+window_Matrix = np.zeros((height, widht)) #Matriz de la imagen de la ventana
 win = pygame.display.set_mode((widht, height))
 pygame.display.set_caption("Fruit Ninja")
 
@@ -38,17 +41,36 @@ class img(object):
         self.angle = angle
         win.blit(pygame.transform.rotate(self.pic, self.angle), (self.x, self.y))
 
+def updateMatrix():
+    #Transforma la imagen de la Ventana a String
+    raw_str = pygame.image.tostring(win, "RGB")
+    image = Image.frombytes("RGB", win.get_size(), raw_str)
+    # Convertir a matriz NumPy
+    image_array = np.array(image)
+    # Cambia de RGB A BGR
+    return cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
+
+def getWindowsMatrix():
+    return window_Matrix
+
 run = True
 angle = 0
+contador = 0
+limite = 10
 
 while run:
-    number_of_fruits = randint(0, 2)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
     
     #Crea las frutas con posiciones y gravedad aleatoria
     if len(fruits) < 3:
+        if contador <= limite:
+            number_of_fruits = randint(0, 2)
+        #Resta si se excede del limite
+        while(contador+number_of_fruits > limite):
+            number_of_fruits -= 1
+        
         for i in range(number_of_fruits):
             pos = randint(50, widht + 50)
             ypos = randint(height, height + 40)
@@ -57,6 +79,8 @@ while run:
 
             fruit = image[0]
             fruits.append(img(pos, ypos, fruit, gravedad))
+            contador += 1
+            print(contador)
 
     #Actualiza la posicion de las frutas
     for fruit in fruits:
@@ -74,15 +98,16 @@ while run:
         if fruit.y > height + 41:
             fruits.remove(fruit)
 
-    pygame.display.update()
+    pygame.display.update() 
+    window_Matrix = updateMatrix()
+    cv2.imshow("prueba", window_Matrix)
     win.fill("black") #Evita que el fondo se llene de imagenes de frutas
 
     angle = angle + 0.2
     if angle == 259:
         angle = 0
     
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+    run = len(fruits) > 0 or contador < limite
 
 pygame.quit()
 cv2.destroyAllWindows()
