@@ -58,24 +58,22 @@ while run:
     for fruit in fruits:
         fruit.y = fruit.y - (fruit.u*fruit.t)
         fruit.u = fruit.u + (fruit.g*fruit.t)
-        fruit.t = fruit.t + 0.01
+        fruit.t = fruit.t + 0.001
         if fruit.pos <= 200:
-            fruit.x = fruit.x + 1.3
+            fruit.x = fruit.x + 0.26
         if fruit.pos > 200:
-            fruit.x = fruit.x - 1.3
+            fruit.x = fruit.x - 0.26
         if fruit.u == 0:
             fruit.t = 0
         fruit.show(angle)
         mask = pygame.mask.from_surface(fruit.pic)
         if fruit.y > height + 41:
             fruits.remove(fruit)
-    
-    time.sleep(0.007) #Evita que las frutas se muevan muy rapido
 
     pygame.display.update()
     win.fill("black") #Evita que el fondo se llene de imagenes de frutas
 
-    angle = angle + 1
+    angle = angle + 0.2
     if angle == 259:
         angle = 0
     
