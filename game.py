@@ -1,30 +1,12 @@
 import pygame
 import cv2
 from random import randint
-import random
 import pygame.surfarray
-from PIL import Image
 import numpy as np
 import mediapipe as mp
 import math
 import time
-#import fruit
-
-#Clase donde se define las propiedades de las frutas
-class fruit_img(object):
-    def __init__(self, x, y, pic, g, size, u=12, t=0):
-        self.x = x
-        self.y = y
-        self.pic = pic
-        self.u = u
-        self.pos = x
-        self.g = g * -0.01
-        self.t = t
-        self.touched = False
-        self.size = size
-    def show(self,angle):
-        self.angle = angle
-        win.blit(pygame.transform.rotate(self.pic, self.angle), (self.x, self.y))
+import fruit as fr
 
 def distance(a, b):
     x1 = a[0]
@@ -34,54 +16,16 @@ def distance(a, b):
     d = math.sqrt(pow(x1 - x2, 2) + pow(y1 - y2, 2))
     return int(d)
 
-def inside_circle(finger_pos, fruit_pos, size):
-    point = (fruit_pos[0] + size[0], fruit_pos[1] + size[1])
-    if is_inside(finger_pos, point):
-        return True
-    point = (fruit_pos[0] - size[0], fruit_pos[1] + size[1])
-    if is_inside(finger_pos, point):
-        return True
-    point = (fruit_pos[0] + size[0], fruit_pos[1] - size[1])
-    if is_inside(finger_pos, point):
-        return True
-    point = (fruit_pos[0] - size[0], fruit_pos[1] - size[1])
-    if is_inside(finger_pos, point):
-        return True
-    return False
-
-def is_inside(finger_pos, point):
-    up = point[1] <= finger_pos[1] + 13
-    down = point[1] >= finger_pos[1] - 13
-    right = point[0] <= finger_pos[0] + 13
-    left = point[0] >= finger_pos[0] - 13
-    return up and down and right and left
-
 pygame.init()
-fruits = [] #Guarda las frutas en pantalla
-fruits_parts = [] #Guarda las frutas partidas
 myfont = pygame.font.SysFont("monospace", 24)
 
-widht = 640
-height = 480
-window_Matrix = np.zeros((height, widht)) #Matriz de la imagen de la ventana
-win = pygame.display.set_mode((widht, height))
+cap = cv2.VideoCapture(0)
+run, img = cap.read()
+height, width, c = img.shape
+
+window_Matrix = np.zeros((height, width)) #Matriz de la imagen de la ventana
+win = pygame.display.set_mode((width, height))
 pygame.display.set_caption("Fruit Ninja")
-
-#Se cargan las imagenes de las frutas
-apple = [pygame.image.load('assets/apple.png'), pygame.image.load('assets/apple-1.png'), pygame.image.load('assets/apple-2.png')]
-peach = [pygame.image.load('assets/peach.png'), pygame.image.load('assets/peach-1.png'), pygame.image.load('assets/peach-2.png')]
-strawberry = [pygame.image.load('assets/strawberry.png'), pygame.image.load('assets/strawberry-1.png'), pygame.image.load('assets/strawberry-2.png')]
-watermelon = [pygame.image.load('assets/watermelon.png'), pygame.image.load('assets/watermelon-1.png'), pygame.image.load('assets/watermelon-2.png')]
-
-fruit_data = []
-for fruit_png in [apple, peach, strawberry, watermelon]:
-    png = fruit_png[0]
-    fruit_data.append({
-        "size": (png.get_height()/2, png.get_width()/2),
-        "images": fruit_png
-    })
-
-empty_background = np.zeros(shape=(480,640,3), dtype="uint8")
 
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
@@ -92,8 +36,7 @@ hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_c
 slash = np.array([[]], np.int32)
 slash_Color = (255, 255, 255)
 slash_length = 19
-
-w = h = 0
+empty_background = np.zeros(shape=(height,width,3), dtype="uint8")
 
 # --- Variables para medir la velocidad ---
 prev_pos = None
@@ -105,25 +48,17 @@ SPEED_THRESHOLD_KMH = 10
 # Estimación del ancho de la vista de la cámara en metros (ajustar para precisión)
 REAL_WORLD_WIDTH_METERS = 0.5
 
-run = True
+#Variables para mostrar frutas
+fruits = [] #Guarda las frutas en pantalla
 angle = 0
 contador = 0
 limite = 10
 
-cap = cv2.VideoCapture(0)
-print("inicio")
-unavez = True
 while run:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
-    
-    success, img = cap.read()
-    if not success:
-        print("skipping frame")
-        continue
 
-    h, w, c = img.shape
     img = cv2.cvtColor(cv2.flip(img, 1), cv2.COLOR_BGR2RGB)
     img.flags.writeable = False
     results = hands.process(img)
@@ -145,7 +80,7 @@ while run:
 
             # Obtener la posición del dedo índice (landmark 8)
             lm = hand_landmarks.landmark[8]
-            index_pos = (int(lm.x * w), int(lm.y * h))
+            index_pos = (int(lm.x * width), int(lm.y * height))
 
             if contador >= 10 and index_pos[1] >= 400:
                 print(index_pos)
@@ -156,7 +91,7 @@ while run:
                 delta_t = current_time - prev_time
                 if delta_t > 0:
                     dist_pixels = distance(index_pos, prev_pos)
-                    pixels_per_meter = w / REAL_WORLD_WIDTH_METERS
+                    pixels_per_meter = width / REAL_WORLD_WIDTH_METERS
                     dist_meters = dist_pixels / pixels_per_meter
                     speed_mps = dist_meters / delta_t
                     speed_kmh = speed_mps * 3.6
@@ -204,86 +139,35 @@ while run:
     if len(fruits) < 3:
         if contador <= limite:
             number_of_fruits = randint(0, 2)
+        
         #Resta si se excede del limite
         while(contador+number_of_fruits > limite):
             number_of_fruits -= 1
         
         for i in range(number_of_fruits):
-            pos = randint(50, widht + 50)
-            ypos = randint(height, height + 40)
-            gravedad = randint(15, 18)
-            data = random.choice(fruit_data)
-
-            fruit = data["images"][0]
-            fruits.append(fruit_img(pos, ypos, fruit, gravedad, data["size"]))
+            fruits.append(fr.generate_fruits(height, width))
             contador += 1
             print(contador)
 
     #Actualiza la posicion de las frutas
     for fruit in fruits:
         touch = False
-        if index_pos:
-            size = fruit.size
-            if (angle >= 90 and angle < 180) or (angle >= 270 and angle < 360):
-                size = (size[1], size[0])
-            touch = inside_circle(index_pos, (fruit.x, fruit.y), size)
-        fruit.y = fruit.y - (fruit.u*fruit.t)
-        fruit.u = fruit.u + (fruit.g*fruit.t)
-        fruit.t = fruit.t + 0.001
-        if fruit.pos <= 200:
-            fruit.x = fruit.x + 0.26
-        if fruit.pos > 200:
-            fruit.x = fruit.x - 0.26
-        if fruit.u == 0:
-            fruit.t = 0
-        fruit.show(angle)
-        pygame.mask.from_surface(fruit.pic)
-        if index_pos:
-            size = fruit.size
-            if (angle >= 90 and angle < 180) or (angle >= 270 and angle < 360):
-                size = (size[1], size[0])
-            touch = touch or inside_circle(index_pos, (fruit.x, fruit.y), size)
 
-        if not fruit.touched and touch:
-            fruit.touched = True
+        if index_pos and not fruit.touched:
+            touch = fruit.is_inside(index_pos)
+        
+        fruit.move()
+        fruit.show(angle, win)
+        # mask = pygame.mask.from_surface(fruit.pic)
 
-            xposition = fruit.x
-            yposition = fruit.y
-            grav = fruit.g / -0.01
-            vel = fruit.u
-            size = fruit.size
-            tim = fruit.t
-            if fruit.pic == apple[0]:
-                fruits_parts.append(fruit_img(xposition +9, yposition + 9, apple[1], grav, size, vel, tim))
-                fruits_parts.append(fruit_img(xposition - 9, yposition - 9, apple[2], grav, size, vel, tim))
-            elif fruit.pic == peach[0]:
-                fruits_parts.append(fruit_img(xposition +9, yposition + 9, peach[1], grav, size, vel, tim))
-                fruits_parts.append(fruit_img(xposition - 9, yposition - 9, peach[2], grav, size, vel, tim))
-            elif fruit.pic == strawberry[0]:
-                fruits_parts.append(fruit_img(xposition +9, yposition + 9, strawberry[1], grav, size, vel, tim))
-                fruits_parts.append(fruit_img(xposition - 9, yposition - 9, strawberry[2], grav, size, vel, tim))
-            elif fruit.pic == watermelon[0]:
-                fruits_parts.append(fruit_img(xposition +9, yposition + 9, watermelon[1], grav, size, vel, tim))
-                fruits_parts.append(fruit_img(xposition - 9, yposition - 9, watermelon[2], grav, size, vel, tim))
+        if not fruit.touched:
+            if index_pos:
+                touch = touch or fruit.is_inside(index_pos)
+            if touch:
+                fruits.append(fruit.divide())
 
-        if fruit.y > height + 41 or fruit.touched:
-            fruits.remove(fruit)
-    
-    #Actualiza la posicion de las frutas partidas
-    for fruit in fruits_parts:
-        fruit.y = fruit.y - (fruit.u*fruit.t)
-        fruit.u = fruit.u + (fruit.g*fruit.t)
-        fruit.t = fruit.t + 0.01
-        if fruit.pos <= 200:
-            fruit.x = fruit.x + 1.3
-        if fruit.pos > 200:
-            fruit.x = fruit.x - 1.3
-        if fruit.u == 0:
-            fruit.t = 0
-        fruit.show(angle)
-        pygame.mask.from_surface(fruit.pic)
         if fruit.y > height + 41:
-            fruits_parts.remove(fruit)
+            fruits.remove(fruit)
     
     angle = angle + 0.2
     if angle == 259:
@@ -294,8 +178,12 @@ while run:
     surface = pygame.surfarray.make_surface(np.transpose(img_estela, (1, 0, 2)))
     surface.set_colorkey((0, 0, 0))  #Hace transparente el color negro
     win.blit(surface, (0, 0))
-
     pygame.display.update()
+
+    success, img = cap.read()
+    if not success:
+        print("skipping frame")
+        continue
 
 cap.release()
 cv2.destroyAllWindows()
