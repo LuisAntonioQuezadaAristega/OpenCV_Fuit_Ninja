@@ -13,7 +13,7 @@ for name in names:
         pygame.image.load('assets/' + name + '-2.png')
     ]
 
-#Clase donde se define las propiedades de las frutas
+# Clase donde se define las propiedades de las frutas
 class fruit_img(object):
     def __init__(self, x, y, name, index, g, u=12, t=0, touched=False):
         self.x = x
@@ -71,6 +71,7 @@ class fruit_img(object):
         self.touched = True
         return new
 
+# Crea y retorna una fruta con posiciones y gravedad aleatoria
 def generate_fruits(height, width):
     pos = randint(50, width + 50)
     ypos = randint(height, height + 40)

@@ -51,18 +51,20 @@ REAL_WORLD_WIDTH_METERS = 0.5
 #Variables para mostrar frutas
 fruits = [] #Guarda las frutas en pantalla
 angle = 0
-contador = 0
+contador = 10
 limite = 10
+score = 0
 
 while run:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
 
-    img = cv2.cvtColor(cv2.flip(img, 1), cv2.COLOR_BGR2RGB)
+    img = cv2.flip(img, 1)
+    img2 = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img.flags.writeable = False
-    results = hands.process(img)
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    results = hands.process(img2)
+    #img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
     current_time = time.time()
     index_pos = None
@@ -71,20 +73,16 @@ while run:
 
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
-            mp_drawing.draw_landmarks(
-                img,
-                hand_landmarks,
-                mp_hands.HAND_CONNECTIONS,
-                mp_drawing_styles.get_default_hand_landmarks_style(),
-                mp_drawing_styles.get_default_hand_connections_style())
+            #mp_drawing.draw_landmarks(
+            #    img,
+            #    hand_landmarks,
+            #    mp_hands.HAND_CONNECTIONS,
+            #    mp_drawing_styles.get_default_hand_landmarks_style(),
+            #    mp_drawing_styles.get_default_hand_connections_style())
 
             # Obtener la posición del dedo índice (landmark 8)
             lm = hand_landmarks.landmark[8]
             index_pos = (int(lm.x * width), int(lm.y * height))
-
-            if contador >= 10 and index_pos[1] >= 400:
-                print(index_pos)
-                contador = 0
 
             # --- Lógica de velocidad ---
             if prev_pos is not None and prev_time is not None:
@@ -128,31 +126,37 @@ while run:
     # Mostrar advertencia si el temporizador está activo
     if current_time < warning_end_time:
         cv2.putText(img_estela, "Mueve el dedo mas despacio", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-    
 
+    # Muestra al jugador
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     surface = pygame.surfarray.make_surface(np.transpose(img, (1, 0, 2)))
     win.blit(surface, (0, 0))
-    #-------------------------------------++
 
-    #Crea las frutas con posiciones y gravedad aleatoria
+    # Inicia el juego al detectar el dedo abajo
+    if index_pos and contador >= 10 and len(fruits) == 0 and index_pos[1] >= 400:
+        print(index_pos)
+        contador = 0  
+        score = 0
+
+    # Crea las frutas con posiciones y gravedad aleatoria
     if len(fruits) < 3:
         if contador <= limite:
             number_of_fruits = randint(0, 2)
         
-        #Resta si se excede del limite
+        # Resta si se excede del limite
         while(contador+number_of_fruits > limite):
             number_of_fruits -= 1
         
+        # Añade las frutas al array de frutas
         for i in range(number_of_fruits):
             fruits.append(fr.generate_fruits(height, width))
             contador += 1
             print(contador)
 
-    #Actualiza la posicion de las frutas
+
+    # Actualiza la posicion de las frutas
     for fruit in fruits:
         touch = False
-
         if index_pos and not fruit.touched:
             touch = fruit.is_inside(index_pos)
         
@@ -164,19 +168,21 @@ while run:
             if index_pos:
                 touch = touch or fruit.is_inside(index_pos)
             if touch:
+                score = score + 100
+                print("score "+ str(score))
                 fruits.append(fruit.divide())
 
         if fruit.y > height + 41:
             fruits.remove(fruit)
     
+    # Actualiza el angulo
     angle = angle + 0.2
     if angle == 259:
         angle = 0
 
-    #-------------------------------------++
-
+    # Muestra la estela en el dedo
     surface = pygame.surfarray.make_surface(np.transpose(img_estela, (1, 0, 2)))
-    surface.set_colorkey((0, 0, 0))  #Hace transparente el color negro
+    surface.set_colorkey((0, 0, 0))  #Hace transparente el color negro en la imagen de la estela
     win.blit(surface, (0, 0))
     pygame.display.update()
 
