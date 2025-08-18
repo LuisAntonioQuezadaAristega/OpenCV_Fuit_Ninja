@@ -50,10 +50,11 @@ REAL_WORLD_WIDTH_METERS = 0.5
 
 #Variables para mostrar frutas
 fruits = [] #Guarda las frutas en pantalla
-angle = 0
+#angle = 0
 contador = 10
 limite = 10
-score = 0
+angle = score = lives = 0
+#lives = 0
 
 while run:
     for event in pygame.event.get():
@@ -137,6 +138,7 @@ while run:
         print(index_pos)
         contador = 0  
         score = 0
+        lives = 3
 
     # Crea las frutas con posiciones y gravedad aleatoria
     if len(fruits) < 3:
@@ -167,13 +169,20 @@ while run:
         if not fruit.touched:
             if index_pos:
                 touch = touch or fruit.is_inside(index_pos)
-            if touch:
+            if touch and lives > 0:
                 score = score + 100
                 print("score "+ str(score))
                 fruits.append(fruit.divide())
 
         if fruit.y > height + 41:
+            if not fruit.touched:
+                lives = lives - 1
             fruits.remove(fruit)
+
+    # Finaliza el juego al perder las vidas.
+    if not lives and contador < limite:
+        contador = 10
+        print("Game over")
     
     # Actualiza el angulo
     angle = angle + 0.2
