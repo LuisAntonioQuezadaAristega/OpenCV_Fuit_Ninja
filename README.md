@@ -1,6 +1,6 @@
 # OpenCV_Fuit_Ninja
 
-game.py es el archivo que contiene todos los elementos del juego implementados.
+game.py es el archivo principal y que contiene todos los elementos del juego implementados.
 
 finger.py sirvio para probar la deteccion del dedo del jugador.
 
