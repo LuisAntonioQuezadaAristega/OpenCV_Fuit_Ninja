@@ -4,9 +4,9 @@ from random import randint
 import pygame.surfarray
 import numpy as np
 import mediapipe as mp
-import math
 import time
 import fruit as fr
+import math
 
 def distance(a, b):
     x1 = a[0]
@@ -22,7 +22,6 @@ myfont = pygame.font.SysFont("monospace", 24)
 cap = cv2.VideoCapture(0)
 run, img = cap.read()
 height, width, c = img.shape
-
 window_Matrix = np.zeros((height, width)) #Matriz de la imagen de la ventana
 win = pygame.display.set_mode((width, height))
 pygame.display.set_caption("Fruit Ninja")
@@ -47,14 +46,16 @@ warning_end_time = 0
 SPEED_THRESHOLD_KMH = 10
 # Estimación del ancho de la vista de la cámara en metros (ajustar para precisión)
 REAL_WORLD_WIDTH_METERS = 0.5
+pixels_per_meter = width / REAL_WORLD_WIDTH_METERS
 
 #Variables para mostrar frutas
 fruits = [] #Guarda las frutas en pantalla
-#angle = 0
-contador = 10
-limite = 10
-angle = score = lives = 0
-#lives = 0
+contador = 0
+limite = 50
+angle = score = points = 0
+lives = 3
+game = False
+end = False
 
 while run:
     for event in pygame.event.get():
@@ -65,22 +66,14 @@ while run:
     img2 = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img.flags.writeable = False
     results = hands.process(img2)
-    #img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
     current_time = time.time()
     index_pos = None
-
+    dist_pixels = None
     img_estela = empty_background.copy()
 
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
-            #mp_drawing.draw_landmarks(
-            #    img,
-            #    hand_landmarks,
-            #    mp_hands.HAND_CONNECTIONS,
-            #    mp_drawing_styles.get_default_hand_landmarks_style(),
-            #    mp_drawing_styles.get_default_hand_connections_style())
-
             # Obtener la posición del dedo índice (landmark 8)
             lm = hand_landmarks.landmark[8]
             index_pos = (int(lm.x * width), int(lm.y * height))
@@ -90,7 +83,6 @@ while run:
                 delta_t = current_time - prev_time
                 if delta_t > 0:
                     dist_pixels = distance(index_pos, prev_pos)
-                    pixels_per_meter = width / REAL_WORLD_WIDTH_METERS
                     dist_meters = dist_pixels / pixels_per_meter
                     speed_mps = dist_meters / delta_t
                     speed_kmh = speed_mps * 3.6
@@ -126,73 +118,92 @@ while run:
 
     # Mostrar advertencia si el temporizador está activo
     if current_time < warning_end_time:
-        cv2.putText(img_estela, "Mueve el dedo mas despacio", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv2.putText(img_estela, "Mueve el dedo mas despacio", (80, 120), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
 
     # Muestra al jugador
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    surface = pygame.surfarray.make_surface(np.transpose(img, (1, 0, 2)))
-    win.blit(surface, (0, 0))
+    cv2.putText(img, "Your score: " + str(score), (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 3)
+    cv2.putText(img, "Left: " + str(limite - contador), (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 3)
+    player_surface = pygame.surfarray.make_surface(np.transpose(img, (1, 0, 2)))
+    win.blit(player_surface, (0, 0))
 
-    # Inicia el juego al detectar el dedo abajo
-    if index_pos and contador >= 10 and len(fruits) == 0 and index_pos[1] >= 400:
-        print(index_pos)
-        contador = 0  
-        score = 0
-        lives = 3
+    finger_surface = pygame.surfarray.make_surface(np.transpose(img_estela, (1, 0, 2)))
+    finger_surface.set_colorkey((0, 0, 0))  #Hace transparente el color negro en la imagen de la estela
 
-    # Crea las frutas con posiciones y gravedad aleatoria
-    if len(fruits) < 3:
-        if contador <= limite:
-            number_of_fruits = randint(0, 2)
+    fr.show_lives(win, lives)
+    # Muestra los botones para iniciar el juego
+    if not game:
+        fr.draw_buttons(win, end)
+        if index_pos:
+            # Boton Arcade
+            d = distance(index_pos, (225, 385)) # (150, 310) + (150/2, 150/2)
+            if d < 75+9:
+                if len(fruits) > 0:
+                    fruits.clear()
+                game = True
+                contador = 0
+                score = 0
+                lives = 3
+                angle = 0
+
+            # Boton Quit
+            d = distance(index_pos, (410, 390))
+            if d < 60+9:
+                run = False
+    else:
+        # Crea las frutas con posiciones y gravedad aleatoria
+        if len(fruits) < 3:
+            if contador <= limite:
+                number_of_fruits = randint(0, 2)
+            # Resta si se excede del limite
+            while(contador+number_of_fruits > limite):
+                number_of_fruits -= 1
+            
+            # Añade las frutas al array de frutas
+            for i in range(number_of_fruits):
+                fruits.append(fr.generate_fruits(height, width))
+                contador += 1
         
-        # Resta si se excede del limite
-        while(contador+number_of_fruits > limite):
-            number_of_fruits -= 1
-        
-        # Añade las frutas al array de frutas
-        for i in range(number_of_fruits):
-            fruits.append(fr.generate_fruits(height, width))
-            contador += 1
-            print(contador)
+            if len(fruits)>0:
+                points = round(100/len(fruits))
 
+        # Actualiza la posicion de las frutas
+        for fruit in fruits:
+            fruit.move()
+            fruit.show(angle, win)
+            
+            if index_pos and dist_pixels and not fruit.touched:
+                moving = dist_pixels > 4
+                touch = False
+                if moving:
+                    d = distance(index_pos, fruit.image_center())
+                    touch = d < fruit.radious+9
+                #touch = touch or fruit.is_inside(index_pos)
+                if touch and lives > 0:
+                    score = score + points
+                    fruits.append(fruit.divide())
 
-    # Actualiza la posicion de las frutas
-    for fruit in fruits:
-        touch = False
-        if index_pos and not fruit.touched:
-            touch = fruit.is_inside(index_pos)
-        
-        fruit.move()
-        fruit.show(angle, win)
-        # mask = pygame.mask.from_surface(fruit.pic)
+            if fruit.y > height + 41:
+                if not fruit.touched and lives > 0:
+                    lives = lives - 1
+                fruits.remove(fruit)
+                if len(fruits) == 0 and contador == limite:
+                    end = True
+                    game = False
 
-        if not fruit.touched:
-            if index_pos:
-                touch = touch or fruit.is_inside(index_pos)
-            if touch and lives > 0:
-                score = score + 100
-                print("score "+ str(score))
-                fruits.append(fruit.divide())
-
-        if fruit.y > height + 41:
-            if not fruit.touched:
-                lives = lives - 1
-            fruits.remove(fruit)
-
-    # Finaliza el juego al perder las vidas.
-    if not lives and contador < limite:
-        contador = 10
-        print("Game over")
-    
+        # Finaliza el juego al perder las vidas.
+        if not lives and contador < limite:
+            contador = limite
+            end = True
+            game = False
+            
     # Actualiza el angulo
     angle = angle + 0.2
     if angle == 259:
         angle = 0
 
     # Muestra la estela en el dedo
-    surface = pygame.surfarray.make_surface(np.transpose(img_estela, (1, 0, 2)))
-    surface.set_colorkey((0, 0, 0))  #Hace transparente el color negro en la imagen de la estela
-    win.blit(surface, (0, 0))
+    win.blit(finger_surface, (0, 0))
     pygame.display.update()
 
     success, img = cap.read()
